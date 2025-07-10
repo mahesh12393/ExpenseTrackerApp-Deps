@@ -16,7 +16,7 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://127.0.0.1:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_LISTENERS: PLAINTEXT://:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
@@ -41,24 +41,88 @@ services:
     image: redis:7.2
     ports:
       - "6379:6379"
-  user-service:
-      image: user-service
-      container_name: user-service
-      ports:
-        - '9810:9810'
-      depends_on:
-        - kafka
-        - mysql
-
-  auth-service:
-    image: auth-service
-    container_name: auth-service
+  userservice:
+    image: user-service
+    container_name: user-service
     ports:
-      - '9898:9898'
+      - "9810:9810"
+    environment:
+      KAFKA_HOST: kafka
+      KAFKA_PORT: 9092
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: userservice
     depends_on:
       - kafka
       - mysql
 
+  authservice:
+    image: auth-service
+    container_name: auth-service
+    ports:
+      - "9898:9898"
+    environment:
+      KAFKA_HOST: kafka
+      KAFKA_PORT: 9092
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: authservice
+    depends_on:
+      - kafka
+      - mysql
+
+  expenseservice:
+    image: expense-service
+    container_name: expense-service
+    ports:
+      - "5676:5676"
+    environment:
+      KAFKA_HOST: kafka
+      KAFKA_PORT: 9092
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: expenseservice
+    depends_on:
+      - kafka
+      - mysql
+
+  ds-service:
+    image: ds-service
+    container_name: ds-service
+    ports:
+      - "8010:8010"
+    environment:
+      KAFKA_HOST: kafka
+      KAFKA_PORT: 9092
+      OPENAI_API_KEY: XXXXXXXXXXXXXXXX
+    depends_on:
+      - kafka
+      - mysql
+      - userservice
+      - expenseservice
+
+  kong:
+    image: kong
+    volumes:
+      - "./config:/usr/local/kong/declarative"
+    environment:
+      KONG_DATABASE: off
+      KONG_DECLARATIVE_CONFIG: /usr/local/kong/declarative/kong-config.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001, 0.0.0.0:8444 ssl
+      KONG_LOG_LEVEL: debug
+      KONG_PLUGINS: bundled
+    depends_on:
+      - userservice
+      - authservice
+    ports:
+      - "8000:8000/tcp"
+      - "127.0.0.1:7990:8001/tcp"
+      - "8443:8443/tcp"
+      - "127.0.0.1:8444:8444/tcp"
 
 volumes:
   mysql-db:

@@ -1,4 +1,4 @@
 FROM amazoncorretto:21-alpine-jdk
 MAINTAINER MaheswarPulla
-COPY app.jar auth-service.jar
-ENTRYPOINT ["java", "-jar", "/auth-service.jar"]
+COPY service-0.0.1-SNAPSHOT.jar expense-service.jar
+ENTRYPOINT ["java", "-jar", "/expense-service.jar"]
